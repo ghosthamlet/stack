@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -- | A ghc-pkg id.
 
@@ -13,6 +14,7 @@ module Stack.Types.GhcPkgId
   where
 
 import           Control.Applicative
+import           Control.Monad (forM)
 import           Control.Monad.Catch
 import           Data.Aeson.Extended
 import           Data.Attoparsec.ByteString.Char8
@@ -22,6 +24,8 @@ import qualified Data.ByteString.Char8 as S8
 import           Data.Char (isLetter)
 import           Data.Data
 import           Data.Hashable
+import           Data.Map (Map)
+import qualified Data.Map as Map
 import           Data.Text.Encoding (encodeUtf8)
 import           GHC.Generics
 import           Prelude -- Fix AMP warning
@@ -56,6 +60,16 @@ instance FromJSON GhcPkgId where
 instance ToJSON GhcPkgId where
   toJSON g =
     toJSON (ghcPkgIdString g)
+
+instance ToJSON a => ToJSON (Map GhcPkgId a) where
+    toJSON = toJSON . Map.mapKeysWith const ghcPkgIdString
+instance FromJSON a => FromJSON (Map GhcPkgId a) where
+    parseJSON v = do
+        m <- parseJSON v
+        fmap Map.fromList $ forM (Map.toList m) $ \(x, y) ->
+            case parseGhcPkgId $ encodeUtf8 x of
+                Left e -> fail $ show e
+                Right x' -> return (x', y)
 
 -- | Convenient way to parse a package name from a bytestring.
 parseGhcPkgId :: MonadThrow m => ByteString -> m GhcPkgId

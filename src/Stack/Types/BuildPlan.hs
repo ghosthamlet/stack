@@ -364,13 +364,15 @@ data MiniBuildPlan = MiniBuildPlan
     }
     deriving (Generic, Show, Eq)
 instance Binary.Binary MiniBuildPlan
+instance ToJSON MiniBuildPlan
+instance FromJSON MiniBuildPlan
 
 -- | Information on a single package for the 'MiniBuildPlan'.
 data MiniPackageInfo = MiniPackageInfo
     { mpiVersion :: !Version
     , mpiFlags :: !(Map FlagName Bool)
     , mpiPackageDeps :: !(Set PackageName)
-    , mpiToolDeps :: !(Set ByteString)
+    , mpiToolDeps :: !(Set ExeName)
     -- ^ Due to ambiguity in Cabal, it is unclear whether this refers to the
     -- executable name, the package name, or something else. We have to guess
     -- based on what's available, which is why we store this is an unwrapped
@@ -382,3 +384,5 @@ data MiniPackageInfo = MiniPackageInfo
     }
     deriving (Generic, Show, Eq)
 instance Binary.Binary MiniPackageInfo
+instance ToJSON MiniPackageInfo
+instance FromJSON MiniPackageInfo

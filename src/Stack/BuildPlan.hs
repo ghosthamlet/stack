@@ -34,8 +34,7 @@ import           Control.Monad.Reader (asks)
 import           Control.Monad.State.Strict      (State, execState, get, modify,
                                                   put)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Aeson.Extended (FromJSON (..), withObject, withText, (.:))
-import           Data.Binary.VersionTagged (taggedDecodeOrLoad)
+import           Data.Aeson.Extended (FromJSON (..), withObject, withText, (.:), decodeFileOrLoad)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import           Data.Either (partitionEithers)
@@ -278,7 +277,7 @@ addDeps allowMissing ghcVersion toCalc = do
                 { mpiVersion = packageIdentifierVersion ident
                 , mpiFlags = flags
                 , mpiPackageDeps = notMe $ packageDependencies pd
-                , mpiToolDeps = Map.keysSet $ packageToolDependencies pd
+                , mpiToolDeps = Set.map ExeName $ Map.keysSet $ packageToolDependencies pd
                 , mpiExes = exes
                 , mpiHasLibrary = maybe
                     False
@@ -357,7 +356,7 @@ getDeps mbp isShadowed packages =
 type ToolMap = Map ByteString (Set PackageName)
 
 -- | Map from tool name to package providing it
-getToolMap :: MiniBuildPlan -> Map ByteString (Set PackageName)
+getToolMap :: MiniBuildPlan -> Map ExeName (Set PackageName)
 getToolMap mbp =
       Map.unionsWith Set.union
 
@@ -376,7 +375,7 @@ getToolMap mbp =
     ps = mbpPackages mbp
 
     goPair (pname, mpi) =
-        map (flip Map.singleton (Set.singleton pname) . unExeName)
+        map (flip Map.singleton (Set.singleton pname))
       $ Set.toList
       $ mpiExes mpi
 
@@ -422,7 +421,7 @@ loadMiniBuildPlan
 loadMiniBuildPlan name = do
     path <- configMiniBuildPlanCache name
     let fp = toFilePath path
-    taggedDecodeOrLoad fp $ liftM buildPlanFixes $
+    decodeFileOrLoad fp $ liftM buildPlanFixes $
         loadBuildPlan name >>= toMiniBuildPlan
 
 -- | Some hard-coded fixes for build plans, hopefully to be irrelevant over

@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS -fno-warn-unused-do-bind #-}
 
 -- | Package identifier (name-version).
@@ -22,6 +23,7 @@ module Stack.Types.PackageIdentifier
 import           Control.Applicative
 import           Control.DeepSeq
 import           Control.Exception (Exception)
+import           Control.Monad (forM)
 import           Control.Monad.Catch (MonadThrow, throwM)
 import           Data.Aeson.Extended
 import           Data.Attoparsec.ByteString.Char8
@@ -30,6 +32,8 @@ import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as S8
 import           Data.Data
 import           Data.Hashable
+import           Data.Map (Map)
+import qualified Data.Map as Map
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding (encodeUtf8)
@@ -69,6 +73,16 @@ instance FromJSON PackageIdentifier where
     case parsePackageIdentifier $ encodeUtf8 t of
       Left e -> fail $ show (e, t)
       Right x -> return x
+
+instance ToJSON a => ToJSON (Map PackageIdentifier a) where
+    toJSON = toJSON . Map.mapKeysWith const packageIdentifierString
+instance FromJSON a => FromJSON (Map PackageIdentifier a) where
+    parseJSON v = do
+        m <- parseJSON v
+        fmap Map.fromList $ forM (Map.toList m) $ \(x, y) ->
+            case parsePackageIdentifier $ encodeUtf8 x of
+                Left e -> fail $ show e
+                Right x' -> return (x', y)
 
 -- | Convert from a package identifier to a tuple.
 toTuple :: PackageIdentifier -> (PackageName,Version)

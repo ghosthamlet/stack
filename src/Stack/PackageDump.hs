@@ -26,7 +26,7 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger (MonadLogger)
 import           Control.Monad.Trans.Control
-import           Data.Binary.VersionTagged (taggedDecodeOrLoad, taggedEncodeFile)
+import           Data.Aeson.Extended (decodeFileOrLoad, encodeFile)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as S8
@@ -78,14 +78,14 @@ newProfilingCache = liftIO $ ProfilingCache <$> newIORef Map.empty
 -- empty cache.
 loadProfilingCache :: MonadIO m => Path Abs File -> m ProfilingCache
 loadProfilingCache path = do
-    m <- taggedDecodeOrLoad (toFilePath path) (return Map.empty)
+    m <- decodeFileOrLoad (toFilePath path) (return Map.empty)
     liftIO $ fmap ProfilingCache $ newIORef m
 
 -- | Save a @ProfilingCache@ to disk
 saveProfilingCache :: MonadIO m => Path Abs File -> ProfilingCache -> m ()
 saveProfilingCache path (ProfilingCache ref) = liftIO $ do
     createDirectoryIfMissing True $ toFilePath $ parent path
-    readIORef ref >>= taggedEncodeFile (toFilePath path)
+    readIORef ref >>= encodeFile (toFilePath path)
 
 -- | Prune a list of possible packages down to those whose dependencies are met.
 --

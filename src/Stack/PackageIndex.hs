@@ -36,7 +36,6 @@ import           Control.Monad.Trans.Control
 
 import           Data.Aeson.Extended
 import qualified Data.Binary as Binary
-import           Data.Binary.VersionTagged (taggedDecodeOrLoad)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as L
 import           Data.Conduit (($$), (=$), yield, Producer, ZipSink (..))
@@ -52,7 +51,7 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 
 
-import           Data.Text.Encoding (encodeUtf8)
+import           Data.Text.Encoding (encodeUtf8, decodeUtf8)
 
 import           Data.Traversable (forM)
 
@@ -99,6 +98,8 @@ data PackageCache = PackageCache
     }
     deriving Generic
 instance Binary.Binary PackageCache
+instance ToJSON PackageCache
+instance FromJSON PackageCache
 
 -- | Stream all of the cabal files from the 00-index tar file.
 withSourcePackageIndex
@@ -331,6 +332,15 @@ data PackageDownload = PackageDownload
     }
     deriving (Show, Generic)
 instance Binary.Binary PackageDownload
+instance ToJSON PackageDownload where
+    toJSON pd = object
+        [ "package-hashes" .= object
+            [ "SHA512" .= decodeUtf8 (pdSHA512 pd)
+            ]
+        , "package-locations" .= [decodeUtf8 $ pdUrl pd]
+        , "package-size" .= pdSize pd
+        ]
+
 instance FromJSON PackageDownload where
     parseJSON = withObject "Package" $ \o -> do
         hashes <- o .: "package-hashes"
@@ -355,7 +365,7 @@ getPackageCaches menv = do
     config <- askConfig
     liftM mconcat $ forM (configPackageIndices config) $ \index -> do
         fp <- liftM toFilePath $ configPackageIndexCache (indexName index)
-        pis' <- taggedDecodeOrLoad fp $ populateCache menv index
+        pis' <- decodeFileOrLoad fp $ populateCache menv index
 
         return (fmap (index,) pis')
 
